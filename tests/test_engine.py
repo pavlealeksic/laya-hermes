@@ -7,8 +7,8 @@ from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import engine as engine_mod  # noqa: E402
-from engine import LayaContextCompressor  # noqa: E402
+from hermes_laya import engine as engine_mod  # noqa: E402
+from hermes_laya.engine import LayaContextCompressor  # noqa: E402
 
 
 def make_transcript(pairs=6, result_len=3000, tail=2):

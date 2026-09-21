@@ -47,8 +47,17 @@ and moderation decisions instead of spending LLM tokens.
 
 ## Install
 
+From PyPI (once published):
+
 ```bash
-hermes plugins install pavlealeksic/laya-hermes --enable
+~/.hermes/hermes-agent/venv/bin/pip install hermes-laya
+hermes plugins enable laya
+```
+
+Or from GitHub (note the `#hermes_laya` subdir — the plugin lives in the package folder):
+
+```bash
+hermes plugins install pavlealeksic/laya-hermes#hermes_laya --enable
 ```
 
 That's it. The right backend package for your platform (`laya-mlx` on Apple Silicon)
@@ -57,7 +66,7 @@ The model checkpoint (~650 MB) then downloads from Hugging Face on the first dec
 Opt out with `/laya set auto_install false` and install manually, or run `/laya setup`
 to trigger the install on demand.
 
-For local development, clone this repo into `~/.hermes/plugins/laya/` and
+For local development, symlink `hermes_laya/` into `~/.hermes/plugins/laya/` and
 `hermes plugins enable laya`.
 
 ## Configuration
@@ -128,7 +137,27 @@ probabilities, confidence, and `action.act_probability`.
 python3 -m unittest discover -s tests -v     # unit tests (stubbed backend, no download)
 python3 -m venv .venv && .venv/bin/pip install laya-mlx
 .venv/bin/python tests/smoke.py              # end-to-end against the real model
+python -m build                              # build sdist + wheel into dist/
 ```
+
+## Publishing a release (maintainer)
+
+The repo ships `.github/workflows/publish.yml` using PyPI **Trusted Publishing** (no
+stored tokens). One-time setup, then releases are automatic:
+
+1. On [pypi.org](https://pypi.org): create an account → *Account settings → Publishing →
+   Add a new pending publisher* → fill in: PyPI project name `hermes-laya`, owner
+   `pavlealeksic`, repository `laya-hermes`, workflow `publish.yml`, environment `pypi`.
+   (A "pending publisher" creates the project on first publish — no need to pre-create it.)
+2. On GitHub: repo *Settings → Environments → New environment* named `pypi`
+   (optionally add required reviewers for a manual gate).
+3. Cut a release: bump `version` in **both** `pyproject.toml` and
+   `hermes_laya/plugin.yaml`, commit, then
+   `gh release create v1.2.0 --generate-notes` — the workflow runs tests, builds, publishes.
+4. Verify: `pip install hermes-laya==1.2.0` in a scratch venv.
+
+Manual fallback if you prefer: `python -m build && twine upload dist/*` with a PyPI API
+token (`pip install twine`).
 
 ## Credits & license
 

@@ -1,5 +1,5 @@
 name: laya
-version: 1.1.0
+version: 1.2.0
 description: >-
   Local "System 1" typed decisions (choice / score / boolean) with calibrated
   probabilities via the Laya model — MLX or Core ML on Apple Silicon, PyTorch

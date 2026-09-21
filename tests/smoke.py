@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import tools  # noqa: E402
+from hermes_laya import tools  # noqa: E402
 
 backend_arg = sys.argv[1] if len(sys.argv) > 1 else None
 model_arg = sys.argv[2] if len(sys.argv) > 2 else None

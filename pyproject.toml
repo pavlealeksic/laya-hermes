@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-laya"
+version = "1.2.0"
+description = "Local System-1 typed decisions for Hermes Agent via the Laya model — decision tools, routing hints, output filtering, and a smart compaction context engine. MLX/Core ML on Apple Silicon, PyTorch elsewhere."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "pavlealeksic" }]
+keywords = ["hermes-agent", "laya", "mlx", "context-engine", "compaction", "local-ai"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+]
+
+[project.urls]
+Homepage = "https://github.com/pavlealeksic/laya-hermes"
+Repository = "https://github.com/pavlealeksic/laya-hermes"
+
+# Backend wheels are optional: the plugin auto-installs the right one on first use.
+# These extras just let you pick explicitly at install time.
+[project.optional-dependencies]
+mlx = ["laya-mlx>=0.1.0"]
+coreml = ["laya-coreml>=0.1.0"]
+torch = ["laya>=0.3.4"]
+
+# Hermes discovers pip-installed plugins through this entry-point group;
+# the entry-point name must match the manifest name (laya).
+[project.entry-points."hermes_agent.plugins"]
+laya = "hermes_laya"
+
+[tool.setuptools]
+packages = ["hermes_laya"]
+
+[tool.setuptools.package-data]
+hermes_laya = ["plugin.yaml", "SKILL.md"]

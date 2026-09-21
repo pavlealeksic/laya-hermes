@@ -8,8 +8,7 @@ from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import config  # noqa: E402
-import tools  # noqa: E402
+from hermes_laya import config, tools  # noqa: E402
 
 
 class FakeCtx:

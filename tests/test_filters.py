@@ -8,10 +8,7 @@ from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import backend  # noqa: E402
-import filters  # noqa: E402
-import metrics  # noqa: E402
-import tools  # noqa: E402
+from hermes_laya import backend, filters, metrics, tools  # noqa: E402
 
 BIG_OUTPUT = "A" * 5000 + "B" * 3000  # 8000 chars > 6000 default threshold
 
