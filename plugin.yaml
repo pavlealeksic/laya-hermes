@@ -1,0 +1,16 @@
+name: laya
+version: 1.0.0
+description: >-
+  Local "System 1" typed decisions (choice / score / boolean) with calibrated
+  probabilities via the Laya model — MLX or Core ML on Apple Silicon, PyTorch
+  elsewhere. Fully offline after model download; no LLM tokens spent on routing,
+  triage, gating, or moderation decisions.
+author: pavlealeksic
+license: Apache-2.0
+kind: standalone
+provides_tools:
+  - laya_decide
+  - laya_status
+# A pre_llm_call hook is registered only when LAYA_ROUTING_HINT=1 (opt-in).
+hooks: []
+requires_env: []
