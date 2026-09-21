@@ -2,21 +2,20 @@
 
 Exposes the local Laya "System 1" typed-decision model as agent tools
 (``laya_decide``, ``laya_status``), a ``/laya`` slash command (``help``,
-``status``, ``stats``, ``setup``, decision forms), a bundled
-``laya:laya-decisions`` skill, session metrics, and two opt-in hooks:
-``pre_llm_call`` routing hints (``LAYA_ROUTING_HINT=1``) and conservative
-output truncation (``LAYA_FILTER_OUTPUT=1``). Backend packages self-install
-on first use unless ``LAYA_AUTO_INSTALL=0``.
+``status``, ``stats``, ``setup``, ``config``, ``set``, decision forms), a bundled
+``laya:laya-decisions`` skill, session metrics, and two hooks: a ``pre_llm_call``
+routing hint and conservative output truncation. All hooks are gated by live
+plugin settings (``/laya set <key> <value>`` — no restart needed); backend
+packages self-install on first use unless ``auto_install`` is off.
 """
 
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 from typing import Any, Optional
 
-from . import schemas, tools
+from . import config, filters, schemas, tools
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +40,15 @@ def _routing_hint_hook(
     model: str = "",
     **kwargs: Any,
 ) -> Optional[dict]:
-    """pre_llm_call hook (opt-in via LAYA_ROUTING_HINT=1).
+    """pre_llm_call hook, gated live on the ``routing_hint`` setting.
 
     Runs Laya's complexity check on the user message; when Laya is confident the
     request is simple, injects a short hint into the turn's user message. Never
     raises, never blocks — hint only, no model override.
     """
     try:
+        if not config.get_value("routing_hint"):
+            return None
         if not isinstance(user_message, str) or not user_message.strip():
             return None
         from . import backend
@@ -72,6 +73,7 @@ def _routing_hint_hook(
 
 
 def register(ctx) -> None:
+    config.init(ctx)
     ctx.register_tool(
         name="laya_decide",
         toolset="laya",
@@ -91,7 +93,7 @@ def register(ctx) -> None:
     ctx.register_command(
         "laya",
         handler=tools.handle_slash,
-        description="Quick local decision via Laya (try /laya help).",
+        description="Quick local decisions and settings via Laya (try /laya help).",
         args_hint="<type>; <question>; <state>",
     )
     skill_path = Path(__file__).parent / "SKILL.md"
@@ -101,12 +103,9 @@ def register(ctx) -> None:
             skill_path,
             description="When and how to use Laya for fast local typed decisions.",
         )
-    if os.environ.get("LAYA_ROUTING_HINT") == "1":
-        ctx.register_hook("pre_llm_call", _routing_hint_hook)
-        logger.info("laya: pre_llm_call routing hint enabled (LAYA_ROUTING_HINT=1)")
-    if os.environ.get("LAYA_FILTER_OUTPUT") == "1":
-        from . import filters
-
-        ctx.register_hook("transform_terminal_output", filters.transform_terminal_output)
-        ctx.register_hook("transform_tool_result", filters.transform_tool_result)
-        logger.info("laya: output filtering enabled (LAYA_FILTER_OUTPUT=1)")
+    # Hooks register unconditionally and gate on live settings at call time, so
+    # `/laya set routing_hint true` / `set filter_output true` take effect without
+    # a restart. When disabled the callbacks return None immediately.
+    ctx.register_hook("pre_llm_call", _routing_hint_hook)
+    ctx.register_hook("transform_terminal_output", filters.transform_terminal_output)
+    ctx.register_hook("transform_tool_result", filters.transform_tool_result)

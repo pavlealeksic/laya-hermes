@@ -1,18 +1,56 @@
 name: laya
-version: 1.0.0
+version: 1.1.0
 description: >-
   Local "System 1" typed decisions (choice / score / boolean) with calibrated
   probabilities via the Laya model — MLX or Core ML on Apple Silicon, PyTorch
   elsewhere. Fully offline after model download; no LLM tokens spent on routing,
-  triage, gating, or moderation decisions.
+  triage, gating, or moderation decisions. Settings adjustable live via
+  /laya config and /laya set.
 author: pavlealeksic
 license: Apache-2.0
 kind: standalone
 provides_tools:
   - laya_decide
   - laya_status
-# A pre_llm_call hook is registered only when LAYA_ROUTING_HINT=1 (opt-in).
-hooks: []
+# Hooks register unconditionally and gate on live settings (routing_hint /
+# filter_output) at call time, so /laya set takes effect without a restart.
+provides_hooks:
+  - pre_llm_call
+  - transform_terminal_output
+  - transform_tool_result
 requires_env: []
 # The backend wheel (laya-mlx / laya-coreml / laya) self-installs into Hermes' Python
-# environment on first use; set LAYA_AUTO_INSTALL=0 to opt out.
+# environment on first use; set auto_install to false to opt out.
+config_schema:
+  backend:
+    type: string
+    default: auto
+    description: "Decision backend: auto, mlx, coreml, or torch."
+  model:
+    type: string
+    default: multilingual
+    description: "Checkpoint alias: english, multilingual, or typed-decisions."
+  dtype:
+    type: string
+    default: float16
+    description: "MLX dtype: float16 or float32."
+  coreml_ane:
+    type: boolean
+    default: false
+    description: "Use Neural Engine Core ML bundles (short inputs only)."
+  routing_hint:
+    type: boolean
+    default: false
+    description: "pre_llm_call hook: inject a hint when Laya is confident a request is simple."
+  auto_install:
+    type: boolean
+    default: true
+    description: "Self-install the backend package (pip) on first use."
+  filter_output:
+    type: boolean
+    default: false
+    description: "Truncate large successful tool/terminal outputs Laya judges disposable."
+  filter_min_chars:
+    type: integer
+    default: 6000
+    description: "Minimum output size before filtering is considered."

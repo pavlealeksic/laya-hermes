@@ -11,13 +11,14 @@ and moderation decisions instead of spending LLM tokens.
 - **`laya_decide` tool** — run typed questions against a state (text, JSON, or conversation list).
   Custom questions or built-in presets (`router`, `guard`, `moderation`, `triage`). Multiple
   questions are batched in one forward pass.
-- **`laya_status` tool** — backend detection, installed packages, config, loaded models, metrics.
-- **`/laya` slash command** — ad-hoc decisions plus `status`, `stats`, `setup` (try `/laya help`).
+- **`laya_status` tool** — backend detection, installed packages, live settings, loaded models, metrics.
+- **`/laya` slash command** — ad-hoc decisions plus `status`, `stats`, `setup`, `config`, `set`
+  (try `/laya help`).
 - **`laya:laya-decisions` skill** — teaches the agent when to prefer Laya over in-LLM reasoning.
-- **Opt-in `pre_llm_call` routing hint** — with `LAYA_ROUTING_HINT=1`, Laya rates each user
+- **Opt-in `pre_llm_call` routing hint** — with `routing_hint` on, Laya rates each user
   message's complexity and injects a short hint when it's confident the request is simple.
   Hint only; it never blocks or overrides your model.
-- **Opt-in output filtering** — with `LAYA_FILTER_OUTPUT=1`, Laya screens *successful* oversized
+- **Opt-in output filtering** — with `filter_output` on, Laya screens *successful* oversized
   tool/terminal outputs and truncates ones it is confident are disposable (install spam, progress
   bars) to head+tail with a marker. Failures and ambiguous output always pass through untouched.
   Laya doesn't generate text, so this truncates — it never summarizes.
@@ -43,24 +44,38 @@ hermes plugins install <owner>/laya-hermes --enable
 That's it. The right backend package for your platform (`laya-mlx` on Apple Silicon)
 **self-installs into Hermes' Python environment on first use** — no manual pip step.
 The model checkpoint (~650 MB) then downloads from Hugging Face on the first decision.
-Set `LAYA_AUTO_INSTALL=0` to opt out and install manually, or run `/laya setup` to
-trigger the install on demand.
+Opt out with `/laya set auto_install false` and install manually, or run `/laya setup`
+to trigger the install on demand.
 
 For local development, clone this repo into `~/.hermes/plugins/laya/` and
 `hermes plugins enable laya`.
 
-## Configuration (env vars, all optional)
+## Configuration
 
-| Var | Default | Meaning |
-|---|---|---|
-| `LAYA_BACKEND` | `auto` | `auto` / `mlx` / `coreml` / `torch` |
-| `LAYA_MODEL` | `multilingual` | `english` (421M, 512 tok), `multilingual` (322M, 100+ langs, 1024 tok), `typed-decisions` (fine-tuned) |
-| `LAYA_DTYPE` | `float16` | MLX dtype (`float16` / `float32`) |
-| `LAYA_COREML_ANE` | `0` | `1` = use Neural Engine bundles (short inputs only) |
-| `LAYA_ROUTING_HINT` | `0` | `1` = enable the `pre_llm_call` complexity hint |
-| `LAYA_AUTO_INSTALL` | `1` | `0` = don't self-install the backend package; require manual pip install |
-| `LAYA_FILTER_OUTPUT` | `0` | `1` = enable conservative truncation of large successful tool/terminal outputs |
-| `LAYA_FILTER_MIN_CHARS` | `6000` | minimum output size before filtering is considered |
+All settings are adjustable **live from inside Hermes** — no restart needed:
+
+```
+/laya config                          # show every setting, its value, and its source
+/laya set filter_output true          # enable output filtering immediately
+/laya set routing_hint true           # enable pre-LLM-call complexity hints
+/laya set model typed-decisions       # switch checkpoint (applies to next decision)
+```
+
+Settings persist in Hermes' `config.yaml` under `plugins.entries.laya.settings` and are
+declared in the plugin's `config_schema`, so Hermes' settings UI can render them too.
+Environment variables still work and **override** settings: precedence is
+env var (`LAYA_*`) → Hermes setting → default.
+
+| Key | Env var | Default | Meaning |
+|---|---|---|---|
+| `backend` | `LAYA_BACKEND` | `auto` | `auto` / `mlx` / `coreml` / `torch` |
+| `model` | `LAYA_MODEL` | `multilingual` | `english` (421M, 512 tok), `multilingual` (322M, 100+ langs, 1024 tok), `typed-decisions` (fine-tuned) |
+| `dtype` | `LAYA_DTYPE` | `float16` | MLX dtype (`float16` / `float32`) |
+| `coreml_ane` | `LAYA_COREML_ANE` | `false` | use Neural Engine bundles (short inputs only) |
+| `routing_hint` | `LAYA_ROUTING_HINT` | `false` | `pre_llm_call` complexity hint |
+| `auto_install` | `LAYA_AUTO_INSTALL` | `true` | self-install the backend package on first use |
+| `filter_output` | `LAYA_FILTER_OUTPUT` | `false` | truncate large successful tool/terminal outputs Laya judges disposable |
+| `filter_min_chars` | `LAYA_FILTER_MIN_CHARS` | `6000` | minimum output size before filtering is considered |
 
 ## Deliberately not included
 

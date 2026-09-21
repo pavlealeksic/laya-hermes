@@ -7,13 +7,13 @@ return a JSON string, never raise.
 from __future__ import annotations
 
 import json
-import os
 from typing import Any, Dict, Optional
 
 try:
-    from . import backend, metrics
+    from . import backend, config, metrics
 except ImportError:  # standalone import (tests, smoke scripts)
     import backend  # type: ignore
+    import config  # type: ignore
     import metrics  # type: ignore
 
 _QUESTION_TYPES = ("choice", "score", "noul")
@@ -109,15 +109,7 @@ def handle_status(args: Dict[str, Any], **kwargs: Any) -> str:
             "backends_installed": availability,
             "default_model": backend.default_model(),
             "loaded_models": backend.loaded_agents(),
-            "config": {
-                "LAYA_BACKEND": os.environ.get("LAYA_BACKEND", "auto"),
-                "LAYA_MODEL": os.environ.get("LAYA_MODEL", backend.DEFAULT_MODEL),
-                "LAYA_DTYPE": os.environ.get("LAYA_DTYPE", "float16"),
-                "LAYA_COREML_ANE": os.environ.get("LAYA_COREML_ANE", "0"),
-                "LAYA_ROUTING_HINT": os.environ.get("LAYA_ROUTING_HINT", "0"),
-                "LAYA_AUTO_INSTALL": os.environ.get("LAYA_AUTO_INSTALL", "1"),
-                "LAYA_FILTER_OUTPUT": os.environ.get("LAYA_FILTER_OUTPUT", "0"),
-            },
+            "settings": config.describe(),
             "metrics": metrics.snapshot(),
             "install_hints": (
                 {} if installed
@@ -140,11 +132,32 @@ def handle_setup() -> str:
     })
 
 
+def handle_config() -> str:
+    """Show every setting: effective value, source (env/settings/default), description."""
+    return _dump({"success": True,
+                  "settings": config.describe(),
+                  "usage": "/laya set <key> <value> — e.g. /laya set filter_output true"})
+
+
+def handle_set(raw: str) -> str:
+    """Persist a setting live via the Hermes plugin context."""
+    tokens = raw.split(None, 1)
+    if len(tokens) != 2 or not tokens[0] or not tokens[1].strip():
+        return _err(f"Usage: /laya set <key> <value>. Valid keys: {', '.join(sorted(config.SETTINGS))}")
+    key, raw_value = tokens[0].strip(), tokens[1].strip()
+    try:
+        value, message = config.set_value(key, raw_value)
+        return _dump({"success": True, "key": key, "value": value, "message": message})
+    except (KeyError, ValueError, RuntimeError) as exc:
+        return _err(str(exc))
+
+
 def handle_slash(raw_args: str) -> str:
     """``/laya`` slash command.
 
     Forms:
-      /laya status | stats | setup
+      /laya status | stats | setup | config
+      /laya set <key> <value>
       /laya preset <router|guard|moderation|triage>; <state>
       /laya noul; <yes/no question>; <state>
       /laya choice|score; <instructions>; <opt1, opt2, ...>; <state>
@@ -157,6 +170,8 @@ def handle_slash(raw_args: str) -> str:
                 "/laya status",
                 "/laya stats",
                 "/laya setup",
+                "/laya config",
+                "/laya set filter_output true",
                 "/laya preset triage; <text>",
                 "/laya noul; Does the user ask for a refund?; <text>",
                 "/laya choice; Which department?; billing, technical, other; <text>",
@@ -169,6 +184,10 @@ def handle_slash(raw_args: str) -> str:
         return metrics.render()
     if raw == "setup":
         return handle_setup()
+    if raw == "config":
+        return handle_config()
+    if raw.startswith("set ") or raw == "set":
+        return handle_set(raw[3:].strip())
 
     parts = [p.strip() for p in raw.split(";")]
     head = parts[0]

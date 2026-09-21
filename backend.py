@@ -24,6 +24,11 @@ import threading
 import time
 from typing import Any, Dict, Optional, Tuple
 
+try:
+    from . import config as _config
+except ImportError:  # standalone import (tests, smoke scripts)
+    import config as _config  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 BACKENDS = ("mlx", "coreml", "torch")
@@ -86,7 +91,7 @@ def available_backends() -> Dict[str, bool]:
 def detect_backend() -> str:
     """Resolve the backend to use. Honors LAYA_BACKEND; 'auto' prefers MLX on
     Apple Silicon (full context + batching), then Core ML, then PyTorch."""
-    forced = os.environ.get("LAYA_BACKEND", "auto").strip().lower()
+    forced = str(_config.get_value("backend")).strip().lower()
     if forced in BACKENDS:
         return forced
     if _is_apple_silicon():
@@ -98,7 +103,7 @@ def detect_backend() -> str:
 
 
 def default_model() -> str:
-    return os.environ.get("LAYA_MODEL", DEFAULT_MODEL).strip().lower()
+    return str(_config.get_value("model")).strip().lower()
 
 
 def _checkpoint(alias: str, backend: str) -> Any:
@@ -107,7 +112,7 @@ def _checkpoint(alias: str, backend: str) -> Any:
             f"Unknown Laya model alias {alias!r}; valid: {', '.join(sorted(_CHECKPOINTS))}"
         )
     ref = _CHECKPOINTS[alias][backend]
-    if backend == "coreml" and os.environ.get("LAYA_COREML_ANE") == "1":
+    if backend == "coreml" and _config.get_value("coreml_ane"):
         # Neural Engine bundles: fastest and most energy-efficient, but capped at
         # ~96 total tokens (question + options + state).
         ref = f"{ref}-ane"
@@ -121,7 +126,7 @@ _install_lock = threading.Lock()
 
 
 def _auto_install_enabled() -> bool:
-    return os.environ.get("LAYA_AUTO_INSTALL", "1").strip() != "0"
+    return bool(_config.get_value("auto_install"))
 
 
 def auto_install(backend: str) -> Tuple[bool, str]:
@@ -196,7 +201,7 @@ def get_agent(model: Optional[str] = None, backend: Optional[str] = None) -> Tup
         mod = _import_backend_module(backend)
         ref = _checkpoint(alias, backend)
         if backend == "mlx":
-            agent = mod.load(ref, dtype=os.environ.get("LAYA_DTYPE", "float16"))
+            agent = mod.load(ref, dtype=str(_config.get_value("dtype")))
         elif backend == "coreml":
             agent = mod.load(ref)
         else:  # torch

@@ -1,11 +1,12 @@
 """Opt-in output filtering hooks for the Laya Hermes plugin (default OFF).
 
-Enabled with ``LAYA_FILTER_OUTPUT=1``. When a *successful* command/tool produces
-very large output (``LAYA_FILTER_MIN_CHARS``, default 6000), Laya decides whether
-the output looks disposable (progress bars, install spam, boilerplate). Only when
-Laya is confident it is NOT needed (P(needed) < threshold) is the output truncated
-to head + tail with a marker. Failures (nonzero returncode, error status) and
-ambiguous cases always pass through untouched.
+Enabled with the ``filter_output`` setting (``/laya set filter_output true`` or
+``LAYA_FILTER_OUTPUT=1``). When a *successful* command/tool produces very large
+output (``filter_min_chars``, default 6000), Laya decides whether the output looks
+disposable (progress bars, install spam, boilerplate). Only when Laya is confident
+it is NOT needed (P(needed) < threshold) is the output truncated to head + tail
+with a marker. Failures (nonzero returncode, error status) and ambiguous cases
+always pass through untouched.
 
 Laya is non-generative — this truncates, it never summarizes. Both hooks are
 fail-open: any exception returns None so Hermes keeps the original output.
@@ -14,13 +15,13 @@ fail-open: any exception returns None so Hermes keeps the original output.
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, Optional
 
 try:
-    from . import backend, metrics
+    from . import backend, config, metrics
 except ImportError:  # standalone import (tests, smoke scripts)
     import backend  # type: ignore
+    import config  # type: ignore
     import metrics  # type: ignore
 
 logger = logging.getLogger(__name__)
@@ -43,13 +44,13 @@ _QUESTIONS = {
 
 
 def filter_enabled() -> bool:
-    return os.environ.get("LAYA_FILTER_OUTPUT", "0").strip() == "1"
+    return bool(config.get_value("filter_output"))
 
 
 def _min_chars() -> int:
     try:
-        return int(os.environ.get("LAYA_FILTER_MIN_CHARS", "6000"))
-    except ValueError:
+        return int(config.get_value("filter_min_chars"))
+    except (TypeError, ValueError):
         return 6000
 
 
