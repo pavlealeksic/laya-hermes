@@ -9,6 +9,7 @@ on:
 # workflow "publish.yml", environment "pypi").
 permissions:
   id-token: write
+  contents: read   # needed to check out private repos
 
 jobs:
   build-and-publish:
