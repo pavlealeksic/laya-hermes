@@ -48,7 +48,7 @@ and moderation decisions instead of spending LLM tokens.
 ## Install
 
 ```bash
-hermes plugins install <owner>/laya-hermes --enable
+hermes plugins install pavlealeksic/laya-hermes --enable
 ```
 
 That's it. The right backend package for your platform (`laya-mlx` on Apple Silicon)
