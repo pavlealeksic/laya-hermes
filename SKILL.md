@@ -81,3 +81,7 @@ Pass `preset` instead of `questions`: `router` (small vs frontier model),
   truncates large *successful* tool outputs Laya judges disposable (a
   `[laya: truncated …]` marker appears in the output — rerun the command if you need
   the full text).
+- If the user selected `context.engine: laya`, context compression is Laya-targeted:
+  stale tool results carry a `[laya-compaction truncated …]` marker, and some old
+  call/result pairs may be gone entirely. Treat re-running a dropped command as normal.
+  `/laya stats` shows compaction runs and fallbacks.

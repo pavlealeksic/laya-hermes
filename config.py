@@ -45,6 +45,30 @@ SETTINGS: Dict[str, Dict[str, Any]] = {
         "env": "LAYA_FILTER_MIN_CHARS", "type": "int", "default": 6000,
         "description": "Minimum output size before filtering is considered.",
     },
+    "keep_threshold": {
+        "env": "LAYA_KEEP_THRESHOLD", "type": "float", "default": 0.5,
+        "description": "Compaction: keep-probability at or above this keeps the unit.",
+    },
+    "error_keep_threshold": {
+        "env": "LAYA_ERROR_KEEP_THRESHOLD", "type": "float", "default": 0.25,
+        "description": "Compaction: lower keep bar for error results.",
+    },
+    "min_result_chars": {
+        "env": "LAYA_MIN_RESULT_CHARS", "type": "int", "default": 2000,
+        "description": "Compaction: tool results smaller than this are never candidates.",
+    },
+    "result_excerpt_chars": {
+        "env": "LAYA_RESULT_EXCERPT_CHARS", "type": "int", "default": 300,
+        "description": "Compaction: result head chars shown to Laya when judging a unit.",
+    },
+    "truncate_head_chars": {
+        "env": "LAYA_TRUNCATE_HEAD_CHARS", "type": "int", "default": 300,
+        "description": "Compaction: head kept when a result is truncated.",
+    },
+    "min_reduction_ratio": {
+        "env": "LAYA_MIN_REDUCTION_RATIO", "type": "float", "default": 0.10,
+        "description": "Compaction: Laya pass must shrink the transcript by at least this, else the built-in prune runs.",
+    },
 }
 
 _TRUE = {"1", "true", "yes", "on"}
@@ -78,6 +102,16 @@ def _coerce(key: str, raw: Any) -> Any:
             return int(raw)
         except (TypeError, ValueError):
             raise ValueError(f"{key} must be an integer, got {raw!r}") from None
+    if stype == "float":
+        if isinstance(raw, bool):
+            raise ValueError(f"{key} must be a number, got {raw!r}")
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            raise ValueError(f"{key} must be a number, got {raw!r}") from None
+        if value != value or value in (float("inf"), float("-inf")):
+            raise ValueError(f"{key} must be a finite number, got {raw!r}")
+        return value
     return str(raw)
 
 

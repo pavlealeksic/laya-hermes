@@ -22,6 +22,16 @@ and moderation decisions instead of spending LLM tokens.
   tool/terminal outputs and truncates ones it is confident are disposable (install spam, progress
   bars) to head+tail with a marker. Failures and ambiguous output always pass through untouched.
   Laya doesn't generate text, so this truncates — it never summarizes.
+- **Context engine (smart compaction)** — opt in with `hermes config set context.engine laya`
+  then `/reset`. During context compression, Laya judges each stale tool call/result pair
+  (keep / truncate / drop) instead of Hermes pruning by age alone — so a test failure from three
+  turns ago survives while install spam is dropped. Fully local: unlike
+  [hermes-jev-compact](https://pypi.org/project/hermes-jev-compact/) (which pioneered this
+  design with the hosted Jev API), no transcript leaves the machine and each verdict is free.
+  Safety: the proactive hot path stays deterministic, and any error, invalid transcript, or
+  under-`min_reduction_ratio` pass falls back to the built-in prune — worst case is stock
+  Hermes behavior. Caveat: Laya's ~1024-token window means per-unit judgments (goal + recent
+  tail + the call), not whole-transcript reasoning.
 - **Session metrics** — `/laya stats` shows decisions, avg latency, truncations, and estimated
   tokens saved. In-memory; resets when Hermes restarts.
 
@@ -76,6 +86,12 @@ env var (`LAYA_*`) → Hermes setting → default.
 | `auto_install` | `LAYA_AUTO_INSTALL` | `true` | self-install the backend package on first use |
 | `filter_output` | `LAYA_FILTER_OUTPUT` | `false` | truncate large successful tool/terminal outputs Laya judges disposable |
 | `filter_min_chars` | `LAYA_FILTER_MIN_CHARS` | `6000` | minimum output size before filtering is considered |
+| `keep_threshold` | `LAYA_KEEP_THRESHOLD` | `0.5` | compaction: keep-probability at/above this keeps the unit |
+| `error_keep_threshold` | `LAYA_ERROR_KEEP_THRESHOLD` | `0.25` | compaction: lower keep bar for error results |
+| `min_result_chars` | `LAYA_MIN_RESULT_CHARS` | `2000` | compaction: smaller tool results are never candidates |
+| `result_excerpt_chars` | `LAYA_RESULT_EXCERPT_CHARS` | `300` | compaction: result head chars shown to Laya per unit |
+| `truncate_head_chars` | `LAYA_TRUNCATE_HEAD_CHARS` | `300` | compaction: head kept when a result is truncated |
+| `min_reduction_ratio` | `LAYA_MIN_REDUCTION_RATIO` | `0.10` | compaction: pass must shrink the transcript by this, else built-in prune runs |
 
 ## Deliberately not included
 

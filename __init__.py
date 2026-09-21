@@ -109,3 +109,10 @@ def register(ctx) -> None:
     ctx.register_hook("pre_llm_call", _routing_hint_hook)
     ctx.register_hook("transform_terminal_output", filters.transform_terminal_output)
     ctx.register_hook("transform_tool_result", filters.transform_tool_result)
+    # Context engine: opt-in via `hermes config set context.engine laya` (+ /reset).
+    try:
+        from . import engine as laya_engine
+
+        ctx.register_context_engine(laya_engine.LayaContextCompressor())
+    except Exception as exc:
+        logger.warning("laya: context engine registration failed: %s", exc)

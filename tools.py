@@ -96,12 +96,24 @@ def handle_decide(args: Dict[str, Any], **kwargs: Any) -> str:
         return _err(f"{type(exc).__name__}: {exc}")
 
 
+def _selected_context_engine() -> Optional[str]:
+    """Which context engine Hermes is configured to use (None outside Hermes)."""
+    try:
+        from hermes_cli.config import load_config_readonly  # type: ignore
+
+        cfg = load_config_readonly() or {}
+        return str((cfg.get("context") or {}).get("engine") or "compressor")
+    except Exception:
+        return None
+
+
 def handle_status(args: Dict[str, Any], **kwargs: Any) -> str:
     """laya_status tool handler."""
     try:
         detected = backend.detect_backend()
         availability = backend.available_backends()
         installed = [b for b, ok in availability.items() if ok]
+        selected_engine = _selected_context_engine()
         return _dump({
             "success": True,
             "ready": bool(installed),
@@ -109,6 +121,12 @@ def handle_status(args: Dict[str, Any], **kwargs: Any) -> str:
             "backends_installed": availability,
             "default_model": backend.default_model(),
             "loaded_models": backend.loaded_agents(),
+            "context_engine": {
+                "registered_as": "laya",
+                "selected": selected_engine,
+                "active": selected_engine == "laya",
+                "enable": "hermes config set context.engine laya   (then /reset)",
+            },
             "settings": config.describe(),
             "metrics": metrics.snapshot(),
             "install_hints": (

@@ -12,6 +12,8 @@ kind: standalone
 provides_tools:
   - laya_decide
   - laya_status
+provides_context_engine:
+  - laya
 # Hooks register unconditionally and gate on live settings (routing_hint /
 # filter_output) at call time, so /laya set takes effect without a restart.
 provides_hooks:
@@ -54,3 +56,27 @@ config_schema:
     type: integer
     default: 6000
     description: "Minimum output size before filtering is considered."
+  keep_threshold:
+    type: float
+    default: 0.5
+    description: "Compaction: keep-probability at or above this keeps the unit."
+  error_keep_threshold:
+    type: float
+    default: 0.25
+    description: "Compaction: lower keep bar for error results."
+  min_result_chars:
+    type: integer
+    default: 2000
+    description: "Compaction: tool results smaller than this are never candidates."
+  result_excerpt_chars:
+    type: integer
+    default: 300
+    description: "Compaction: result head chars shown to Laya when judging a unit."
+  truncate_head_chars:
+    type: integer
+    default: 300
+    description: "Compaction: head kept when a result is truncated."
+  min_reduction_ratio:
+    type: float
+    default: 0.10
+    description: "Compaction: Laya pass must shrink the transcript by at least this, else the built-in prune runs."
