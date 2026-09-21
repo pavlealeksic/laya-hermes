@@ -11,9 +11,10 @@ import os
 from typing import Any, Dict, Optional
 
 try:
-    from . import backend
+    from . import backend, metrics
 except ImportError:  # standalone import (tests, smoke scripts)
     import backend  # type: ignore
+    import metrics  # type: ignore
 
 _QUESTION_TYPES = ("choice", "score", "noul")
 
@@ -63,6 +64,7 @@ def _run_decide(state: Any, questions: Dict[str, Any], model: Optional[str],
 
 def handle_decide(args: Dict[str, Any], **kwargs: Any) -> str:
     """laya_decide tool handler."""
+    metrics.record_decision(0.0, feature="tool_calls")
     try:
         state = args.get("state")
         if state is None or (isinstance(state, str) and not state.strip()):
@@ -113,7 +115,10 @@ def handle_status(args: Dict[str, Any], **kwargs: Any) -> str:
                 "LAYA_DTYPE": os.environ.get("LAYA_DTYPE", "float16"),
                 "LAYA_COREML_ANE": os.environ.get("LAYA_COREML_ANE", "0"),
                 "LAYA_ROUTING_HINT": os.environ.get("LAYA_ROUTING_HINT", "0"),
+                "LAYA_AUTO_INSTALL": os.environ.get("LAYA_AUTO_INSTALL", "1"),
+                "LAYA_FILTER_OUTPUT": os.environ.get("LAYA_FILTER_OUTPUT", "0"),
             },
+            "metrics": metrics.snapshot(),
             "install_hints": (
                 {} if installed
                 else {b: backend._INSTALL_HINTS[b] for b in backend.BACKENDS}
@@ -123,11 +128,23 @@ def handle_status(args: Dict[str, Any], **kwargs: Any) -> str:
         return _err(f"{type(exc).__name__}: {exc}")
 
 
+def handle_setup() -> str:
+    """Ensure the detected backend package is installed (auto-installs if needed)."""
+    detected = backend.detect_backend()
+    ok, message = backend.auto_install(detected)
+    return _dump({
+        "success": ok,
+        "backend": detected,
+        "message": message,
+        "note": "Model checkpoints download from Hugging Face on first use.",
+    })
+
+
 def handle_slash(raw_args: str) -> str:
     """``/laya`` slash command.
 
     Forms:
-      /laya status
+      /laya status | stats | setup
       /laya preset <router|guard|moderation|triage>; <state>
       /laya noul; <yes/no question>; <state>
       /laya choice|score; <instructions>; <opt1, opt2, ...>; <state>
@@ -138,6 +155,8 @@ def handle_slash(raw_args: str) -> str:
             "success": True,
             "usage": [
                 "/laya status",
+                "/laya stats",
+                "/laya setup",
                 "/laya preset triage; <text>",
                 "/laya noul; Does the user ask for a refund?; <text>",
                 "/laya choice; Which department?; billing, technical, other; <text>",
@@ -146,6 +165,10 @@ def handle_slash(raw_args: str) -> str:
         })
     if raw == "status":
         return handle_status({})
+    if raw == "stats":
+        return metrics.render()
+    if raw == "setup":
+        return handle_setup()
 
     parts = [p.strip() for p in raw.split(";")]
     head = parts[0]

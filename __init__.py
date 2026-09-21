@@ -1,9 +1,12 @@
 """Laya plugin for Hermes Agent.
 
 Exposes the local Laya "System 1" typed-decision model as agent tools
-(``laya_decide``, ``laya_status``), a ``/laya`` slash command, a bundled
-``laya:laya-decisions`` skill, and an opt-in ``pre_llm_call`` routing hint
-(enabled with ``LAYA_ROUTING_HINT=1``).
+(``laya_decide``, ``laya_status``), a ``/laya`` slash command (``help``,
+``status``, ``stats``, ``setup``, decision forms), a bundled
+``laya:laya-decisions`` skill, session metrics, and two opt-in hooks:
+``pre_llm_call`` routing hints (``LAYA_ROUTING_HINT=1``) and conservative
+output truncation (``LAYA_FILTER_OUTPUT=1``). Backend packages self-install
+on first use unless ``LAYA_AUTO_INSTALL=0``.
 """
 
 from __future__ import annotations
@@ -53,6 +56,12 @@ def _routing_hint_hook(
         answer = (result.get("answers") or {}).get("complexity") or {}
         confidence = answer.get("confidence") or 0.0
         if answer.get("choice") == "simple" and confidence >= _ROUTING_HINT_THRESHOLD:
+            try:
+                from . import metrics
+
+                metrics.record_decision(0.0, feature="routing_hints")
+            except Exception:
+                pass
             return {"context": (
                 f"[laya] Local decision model rates this request as simple "
                 f"(confidence {confidence:.2f}). Prefer the most direct, minimal path."
@@ -95,3 +104,9 @@ def register(ctx) -> None:
     if os.environ.get("LAYA_ROUTING_HINT") == "1":
         ctx.register_hook("pre_llm_call", _routing_hint_hook)
         logger.info("laya: pre_llm_call routing hint enabled (LAYA_ROUTING_HINT=1)")
+    if os.environ.get("LAYA_FILTER_OUTPUT") == "1":
+        from . import filters
+
+        ctx.register_hook("transform_terminal_output", filters.transform_terminal_output)
+        ctx.register_hook("transform_tool_result", filters.transform_tool_result)
+        logger.info("laya: output filtering enabled (LAYA_FILTER_OUTPUT=1)")

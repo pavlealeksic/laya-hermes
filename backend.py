@@ -14,13 +14,17 @@ Model aliases (``LAYA_MODEL`` env var or per-call ``model`` arg):
 
 from __future__ import annotations
 
+import importlib
 import importlib.util
+import logging
 import os
 import platform
 import sys
 import threading
 import time
 from typing import Any, Dict, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 BACKENDS = ("mlx", "coreml", "torch")
 
@@ -110,19 +114,72 @@ def _checkpoint(alias: str, backend: str) -> Any:
     return ref
 
 
+_BACKEND_PACKAGES = {"mlx": "laya-mlx", "coreml": "laya-coreml", "torch": "laya"}
+
+# Guard against concurrent pip installs when several tool calls race on first use.
+_install_lock = threading.Lock()
+
+
+def _auto_install_enabled() -> bool:
+    return os.environ.get("LAYA_AUTO_INSTALL", "1").strip() != "0"
+
+
+def auto_install(backend: str) -> Tuple[bool, str]:
+    """pip-install the backend package into the current Python environment.
+
+    Returns (ok, message). No-op when the module is already importable.
+    """
+    if _module_available(backend):
+        return True, f"{_MODULES[backend]} already installed"
+    package = _BACKEND_PACKAGES[backend]
+    if not _auto_install_enabled():
+        return False, (
+            f"auto-install disabled (LAYA_AUTO_INSTALL=0); "
+            f"install manually: {_INSTALL_HINTS[backend]}"
+        )
+    import subprocess
+
+    with _install_lock:
+        if _module_available(backend):  # another thread beat us to it
+            return True, f"{_MODULES[backend]} already installed"
+        try:
+            proc = subprocess.run(
+                [sys.executable, "-m", "pip", "install", package],
+                capture_output=True, text=True, timeout=600,
+            )
+        except Exception as exc:
+            return False, f"pip install {package} failed to run: {exc}"
+        if proc.returncode != 0:
+            tail = (proc.stderr or proc.stdout or "").strip().splitlines()
+            detail = tail[-1] if tail else f"exit code {proc.returncode}"
+            return False, f"pip install {package} failed: {detail}"
+        importlib.invalidate_caches()
+        if _module_available(backend):
+            logger.info("laya: auto-installed %s into %s", package, sys.executable)
+            return True, f"installed {package}"
+        return False, (
+            f"pip installed {package} but {_MODULES[backend]} is still not importable; "
+            f"restart Hermes or install manually: {_INSTALL_HINTS[backend]}"
+        )
+
+
 def _import_backend_module(backend: str):
     module_name = _MODULES[backend]
+    if not _module_available(backend):
+        ok, message = auto_install(backend)
+        if not ok:
+            raise BackendUnavailableError(
+                f"Laya backend {backend!r} is not available. {message}"
+            )
     try:
         if backend == "torch":
             # Upstream laya deadlocks on import when TensorFlow is also installed.
             os.environ.setdefault("USE_TF", "0")
-        import importlib
-
         return importlib.import_module(module_name)
     except ImportError as exc:
         raise BackendUnavailableError(
-            f"Laya backend {backend!r} is not installed ({module_name} missing). "
-            f"Install it into the Hermes Python environment: {_INSTALL_HINTS[backend]}"
+            f"Laya backend {backend!r} failed to import ({exc}). "
+            f"Try reinstalling: {_INSTALL_HINTS[backend]}"
         ) from exc
 
 
@@ -183,4 +240,9 @@ def predict(
     latency_ms = round((time.perf_counter() - start) * 1000.0, 2)
     if not isinstance(result, dict):
         result = {"answers": result}
+    try:
+        from . import metrics
+    except ImportError:  # standalone import (tests, smoke scripts)
+        import metrics  # type: ignore
+    metrics.record_decision(latency_ms)
     return result, latency_ms, backend, alias

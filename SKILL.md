@@ -72,4 +72,10 @@ Pass `preset` instead of `questions`: `router` (small vs frontier model),
 ## Operations
 
 - Unsure which backend/model is active or whether Laya is installed? Call `laya_status`.
-- Quick ad-hoc checks from chat: `/laya help` shows the slash-command forms.
+- Quick ad-hoc checks from chat: `/laya help` shows the slash-command forms;
+  `/laya setup` verifies/installs the backend; `/laya stats` shows usage metrics.
+- The plugin may also run automatically in the background when the user enabled it:
+  `LAYA_ROUTING_HINT=1` injects complexity hints before LLM calls, and
+  `LAYA_FILTER_OUTPUT=1` truncates large *successful* tool outputs Laya judges disposable
+  (a `[laya: truncated …]` marker appears in the output — rerun the command if you need
+  the full text).
